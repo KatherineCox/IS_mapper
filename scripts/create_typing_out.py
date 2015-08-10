@@ -35,10 +35,56 @@ def parse_args():
     # Output parameters
     parser.add_argument('--temp', type=str, required=True, help='location of temp folder to place intermediate blast files in')
     parser.add_argument('--output', type=str, required=True, help='name for output file')
+    parser.add_argument('--five_sam', type=str, required=True, help='alignment of left end reads to reference')
+    parser.add_argument('--three_sam', type=str, required=True, help='alignment of right end reads to reference')
     parser.add_argument('--igv', type=int, required=True, help='format of output bedfile - if 1, adds IGV trackline and formats 4th column for hovertext display')
     parser.add_argument('--chr_name', type=str, required=True, help='chromosome name for bedfile - must match genome name to load in IGV (default = genbank accession)')
 
     return parser.parse_args()
+
+def find_coverage_breakpoints(five_sam_file, three_sam_file):
+    breakpoint_counts = {}
+    
+    with open(five_sam_file, 'r') as in_file:
+        for line in in_file:
+            # split fields
+            entries = line.split('\t')
+            # check if it's a header line, and if so, skip it
+            if re.search('^@[A-Z][A-Z]$', entries[0]):
+                pass
+            else:
+                breakpoint = None
+                #grab the read name, chromosome name, position, and the cigar string
+                read_name, sam_flag, chr_name, read_start, cigar = entries[0], int(entries [1]), entries[2], int(entries[3]), entries[5]
+
+                # check if the read has been reverse complemented
+                reverse_complement = sam_flag & 16
+
+                #parse the cigar info, exclude hard-clipped regions (these can only be on the very edges, outside of soft-clips if soft-clipping is present)
+                map_regions = re.findall('[0-9]+[MIDNSP=X]', cigar)
+                
+                # Check if the read was previously clipped (part of it aligned to the IS and was removed).
+                # If so, we want the end where it was clipped, which will depend on the read orientation in both the IS and the genome.
+                if re.search('_[35]clip[FR]$', read_name):
+                    
+                
+                
+                # If the read wasn't previously clipped, we only want it if it's clipped now.
+                # Get the first and last items from the cigar string and see if it's soft-clipped (last letter = S). Soft clips will only ever be at the ends (inside would be I/D/N)
+                # If so, find the breakpoint and add it to the dictionary
+                else:
+                    if map_regions[0][-1] == 'S':
+                        breakpoint = read_start
+                    if map_regions[-1][-1] == 'S':
+                        breakpoint = read_start + len(entries[9]) - int(map_regions[-1][:-1])
+                # Add the breakpoint to the dictionary
+                if breakpoint != None:
+                    try:
+                        breakpoint_counts[chr_name][breakpoint] = breakpoint_counts[chr_name].get(breakpoint, 0) + 1
+                    ## if the dictionary doesn't exist yet for this chromosome, make it, then add the breakpoint
+                    except KeyError:
+                        breakpoint_counts[chr_name] = {}
+                        breakpoint_counts[chr_name][breakpoint] = breakpoint_counts[chr_name].get(breakpoint, 0) + 1
 
 def insertion_length(insertion):
     '''

@@ -381,24 +381,25 @@ def extract_clipped_reads(sam_file, min_size, max_size, out_five_file, out_three
             # Get the first and last items from the cigar string and see if it's soft-clipped (last letter = S). Soft clips will only ever be at the ends (inside would be I/D/N)
             # If so, find out how many bases are soft-clipped
             # If it's the right size, add the read and it's quality score to the appropriate fastq file, reverse-complementing if needed
+            # Add a label to the name indicating what direction it aligned and which side of the read was clipped (with respect to the read, so _5clip means the cigar had, for example, 25S50M if the read was forward, or 50M25S if the read was reverse complemented)
             if map_regions[0][-1] == 'S':
                 num_soft_clipped = int(map_regions[0][:-1])
                 if min_size <= num_soft_clipped <= max_size:
                     soft_clipped_seq = Seq(entries[9][:num_soft_clipped], generic_dna)
                     qual_scores = entries[10][:num_soft_clipped]
                     if reverse_complement:
-                        out_five.write('@' + read_name + '\n' + str(soft_clipped_seq.reverse_complement()) + '\n+\n' + qual_scores[::-1] + '\n')
+                        out_five.write('@' + read_name + '_3clipR\n' + str(soft_clipped_seq.reverse_complement()) + '\n+\n' + qual_scores[::-1] + '\n')
                     else:
-                        out_five.write('@' + read_name + '\n' + str(soft_clipped_seq) + '\n+\n' + qual_scores + '\n')
+                        out_five.write('@' + read_name + '_5clipF\n' + str(soft_clipped_seq) + '\n+\n' + qual_scores + '\n')
             if map_regions[-1][-1] == 'S':
                 num_soft_clipped = int(map_regions[-1][:-1])
                 if min_size <= num_soft_clipped <= max_size:
                     soft_clipped_seq = Seq(entries[9][-num_soft_clipped:], generic_dna)
                     qual_scores = entries[10][-num_soft_clipped:]
                     if reverse_complement:
-                        out_three.write('@' + read_name + '\n' + str(soft_clipped_seq.reverse_complement()) + '\n+\n' + qual_scores[::-1] + '\n')
+                        out_three.write('@' + read_name + '_5clipR\n' + str(soft_clipped_seq.reverse_complement()) + '\n+\n' + qual_scores[::-1] + '\n')
                     else:
-                        out_three.write('@' + read_name + '\n' + str(soft_clipped_seq) + '\n+\n' + qual_scores + '\n')
+                        out_three.write('@' + read_name + '_3clipF\n' + str(soft_clipped_seq) + '\n+\n' + qual_scores + '\n')
 
 def main():
 
@@ -636,7 +637,8 @@ def main():
                     '--left_unpaired', bed_unpaired_five, '--right_unpaired', bed_unpaired_three, 
                     '--seq', query, '--ref', args.typingRef, '--temp', temp_folder, 
                     '--cds', args.cds, '--trna', args.trna, '--rrna', args.rrna, '--min_range', args.min_range,
-                    '--max_range', args.max_range, '--output', sample + '_' + query_name, '--igv', igv_flag, '--chr_name', args.chr_name], shell=True)
+                    '--max_range', args.max_range, '--output', sample + '_' + query_name,
+                    '--five_sam,', five_to_ref_sam, '--three_sam', three_to_ref_sam, '--igv', igv_flag, '--chr_name', args.chr_name], shell=True)
 
             # remove temp folder if required
             if args.temp == False:
